@@ -2,9 +2,9 @@
 
 ## Feature
 
-useChainedQuery hook is a wrapper of useQuery allowing chained queries, aiming to solve the problem that too many concurrent requests that hit the limitation of an API.
+react-chained-query provide a `useChainedQuery` hook that consit of a wrapper on top of react-query `useQuery`. This `useChainedQuery` hook allow chaining queries instead of runnning them concurently, it aims to solve problems that may occurs when hitting a slow backend with too many requests.
 
-By managing a queque and executing the request one after another, it could give the capability to UI displaying the information gradually.
+By managing a queue and executing the request one after another, it could give the capability for an application to display the information sequentially.
 
 ## Dependencies
 
@@ -67,13 +67,13 @@ export default function App() {
 }
 ```
 
-[A complete example here](https://codesandbox.io/s/use-chained-query-forked-j3mfed?file=/src/useChainedQuery.tsx)
+[A complete example here](https://codesandbox.io/s/use-chained-query-forked-j3mfed?file=/src/App.tsx)
 
 ## Advanced Documentation
 
 In order to use `useChainedQuery` in your component, it has be below `QueryClientProvider` and `ChainedQueryProvider`.
 
-It's possibile to have several `ChainedQueryProvider` which means to manage several queues.
+It's possibile to have several `ChainedQueryProvider` each of them would then holds it's own queue of queries.
 
 ```js
 <QueryClientProvider>
@@ -83,4 +83,4 @@ It's possibile to have several `ChainedQueryProvider` which means to manage seve
 </QueryClientProvider>
 ```
 
-Made with ❤️ by [Scality](https://github.com/scality/)
+Made with ❤️ by Pod-UI at [Scality](https://github.com/scality/)
