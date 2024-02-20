@@ -1,10 +1,10 @@
 {
-  "name": "react-chained-query",
+  "name": "@scality/react-chained-query",
   "version": "1.0.0",
   "description": "A wrapper of react-query useQuery hook allowing chained queries.",
-  "main": "src/index.ts",
+  "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "rimraf dist && tsc --noEmit",
     "test": "jest"
   },
   "repository": {
@@ -19,9 +19,9 @@
   "homepage": "https://github.com/scality/react-chained-query#readme",
   "dependencies": {
     "@testing-library/react": "^11.2.7",
-    "react-query": "^3.39.3",
     "react": "^17.0.0",
     "react-dom": "17.0.0",
+    "react-query": "^3.39.3",
     "uuid": "^9.0.0"
   },
   "peerDependencies": {
@@ -36,6 +36,7 @@
     "@testing-library/user-event": "^13.5.0",
     "@types/jest": "^29.4.0",
     "@types/react": "^17.0.0",
+    "@types/react-dom": "^18.2.19",
     "@types/uuid": "^9.0.0",
     "jest": "^29.3.1",
     "jest-environment-jsdom": "^29.7.0",
