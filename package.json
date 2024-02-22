@@ -2,7 +2,8 @@
   "name": "@scality/react-chained-query",
   "version": "1.0.0",
   "description": "A wrapper of react-query useQuery hook allowing chained queries.",
-  "main": "dist/index.js",
+  "main": "src/index.ts",
+  "types": "dist/index.d.ts",
   "scripts": {
     "build": "rimraf dist && tsc",
     "test": "jest"
