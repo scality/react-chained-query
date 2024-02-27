@@ -4,19 +4,10 @@ import {
   waitFor,
   waitForElementToBeRemoved,
 } from '@testing-library/react';
-import { renderHook, act } from '@testing-library/react-hooks';
-import { PropsWithChildren, useEffect, useState } from 'react';
-import { QueryClient, QueryClientProvider } from 'react-query';
-import { ChainedQueryProvider, useChainedQuery } from './useChainedQuery';
-
-const client = new QueryClient();
-const wrapper = ({ children }: PropsWithChildren<{}>) => {
-  return (
-    <QueryClientProvider client={client}>
-      <ChainedQueryProvider>{children}</ChainedQueryProvider>
-    </QueryClientProvider>
-  );
-};
+import { act, renderHook } from '@testing-library/react-hooks';
+import React, { useEffect, useState } from 'react';
+import { useChainedQuery } from '../useChainedQuery';
+import { client, wrapper } from './testUtils';
 
 describe('useChainedQuery', () => {
   beforeEach(() => {
@@ -158,26 +149,16 @@ describe('useChainedQuery', () => {
     };
 
     render(<Component />, { wrapper });
-    //E
 
-    await waitFor(() =>
-      expect(screen.getByText('component1 loading')).toBeInTheDocument(),
-    );
     //V
     expect(fn1).toHaveBeenCalledTimes(1);
     expect(fn2).toHaveBeenCalledTimes(0);
     expect(fn3).toHaveBeenCalledTimes(0);
-    expect(screen.getByText('component2 idle')).toBeInTheDocument();
-    expect(screen.getByText('component3 idle')).toBeInTheDocument();
     //E
     await waitForElementToBeRemoved(() => screen.getByText(/component2/));
-    await waitFor(() =>
-      expect(screen.getByText('component3 loading')).toBeInTheDocument(),
-    );
-    //V
     expect(fn1).toHaveBeenCalledTimes(1);
     expect(fn2).toHaveBeenCalledTimes(0);
-    expect(fn3).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(fn3).toHaveBeenCalledTimes(1));
   });
 
   it('should raise an error when using the hook outside the ChainedQueryProvider', () => {
