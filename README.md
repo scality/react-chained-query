@@ -12,20 +12,11 @@ By managing a queue and executing the request one after another, it could give t
 
 This `useChainedMutations` hook takes an array of mutations and a function to compute the variables for the next mutation in the chain. It returns an object containing a `mutate` function that triggers the chain of mutations, a `computeVariablesForNext` function that computes the variables for the next mutation, and an array of `mutationsWithRetry` that includes a retry function for each mutation.
 
-## Dependencies
-
-```json
-{
-  "peerDependencies": {
-    "react": "^17.0.0",
-    "react-query": "^3.0.0"
-  }
-}
-```
-
 ## Install
 
-TBD
+```bash
+npm install @scality/react-chained-query
+```
 
 ## Quickstart
 
