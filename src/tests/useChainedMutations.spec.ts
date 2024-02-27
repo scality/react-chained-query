@@ -1,11 +1,5 @@
-/**
- * @jest-environment jsdom
- * @jest-environment-options {"url": "https://jestjs.io/"}
- */
-
-import { waitFor } from '@testing-library/react';
-import { useChainedMutations } from './useChainedMutations';
 import { act, renderHook } from '@testing-library/react-hooks';
+import { useChainedMutations } from '../useChainedMutations';
 
 const fn1 = jest.fn();
 const fn2 = jest.fn();
