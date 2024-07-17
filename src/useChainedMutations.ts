@@ -51,6 +51,27 @@ type ChainedMutationsResults<T extends unknown[]> = T extends []
   ? T
   : never;
 
+type ChainedMutationsWithRetryResults<T extends unknown[]> = T extends []
+  ? []
+  : T extends [infer Head, ...infer Tail]
+  ? [
+      InferChainedMutation<Head> & {
+        status: 'loading' | 'success' | 'error';
+        retry: () => void;
+      },
+      ...ChainedMutationsWithRetryResults<Tail>,
+    ]
+  : T extends [infer Head]
+  ? [
+      InferChainedMutation<Head> & {
+        status: 'loading' | 'success' | 'error';
+        retry: () => void;
+      },
+    ]
+  : T extends unknown[]
+  ? T
+  : never;
+
 /**
  * Extracts the variable type from a ChainedMutation type.
  * @template T - The ChainedMutation type.
@@ -149,16 +170,10 @@ export const useChainedMutations = <T extends any[]>({
 }): {
   mutate: () => void;
   computeVariablesForNext: ComputeVariablesForNext<T>;
-  mutationsWithRetry: (ChainedMutation & {
-    status: 'loading' | 'success' | 'error';
-    retry: () => void;
-  })[];
+  mutationsWithRetry: [...ChainedMutationsWithRetryResults<T>];
 } => {
   const mutationsWithRetry = useRef<
-    (ChainedMutation & {
-      status: 'loading' | 'success' | 'error';
-      retry: () => void;
-    })[]
+    [...ChainedMutationsWithRetryResults<T>]
     //@ts-expect-error initial value
   >(mutations);
   const go = (results: unknown[] = []) => {
