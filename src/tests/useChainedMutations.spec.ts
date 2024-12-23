@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act, renderHook } from '@testing-library/react';
 import { useChainedMutations } from '../useChainedMutations';
 
 const fn1 = jest.fn();
