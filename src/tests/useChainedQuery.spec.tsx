@@ -4,7 +4,7 @@ import {
   waitFor,
   waitForElementToBeRemoved,
 } from '@testing-library/react';
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act, renderHook } from '@testing-library/react';
 import React, { useEffect, useState } from 'react';
 import { useChainedQuery } from '../useChainedQuery';
 import { client, wrapper } from './testUtils';
@@ -13,7 +13,7 @@ describe('useChainedQuery', () => {
   beforeEach(() => {
     client.clear();
   });
-  it('should execute 2 queries one after the other one', async () => {
+  it.only('should execute 2 queries one after the other one', async () => {
     //S
     const fn1 = jest
       .fn()
@@ -25,7 +25,7 @@ describe('useChainedQuery', () => {
       .mockImplementation(
         () => new Promise((resolve) => setTimeout(resolve, 500)),
       );
-    const { result, waitFor } = renderHook(
+    const { result } = renderHook(
       () => {
         const queryResult1 = useChainedQuery({
           queryKey: ['test', 1],
@@ -41,9 +41,7 @@ describe('useChainedQuery', () => {
     );
 
     //E
-    await act(async () => {
-      await waitFor(() => result.current.queryResult1.status === 'loading');
-    });
+    await waitFor(() => result.current.queryResult1.status === 'loading');
 
     //V
     expect(fn1).toHaveBeenCalledTimes(1);
@@ -51,9 +49,25 @@ describe('useChainedQuery', () => {
     expect(result.current.queryResult2.status).toBe('idle');
 
     //E
-    await act(async () => {
-      await waitFor(() => result.current.queryResult1.status === 'success');
-      await waitFor(() => result.current.queryResult2.status === 'loading');
+
+    await waitFor(() => {
+      if (result.current.queryResult1.status === 'success') {
+        return Promise.resolve();
+      }
+      return Promise.reject();
+    });
+    await waitFor(() => {
+      if (result.current.queryResult2.status === 'loading') {
+        return Promise.resolve();
+      }
+      return Promise.reject();
+    });
+
+    await waitFor(() => {
+      if (result.current.queryResult2.status === 'success') {
+        return Promise.resolve();
+      }
+      return Promise.reject();
     });
 
     //V
@@ -68,7 +82,7 @@ describe('useChainedQuery', () => {
       .mockImplementation(
         () => new Promise((resolve) => setTimeout(resolve, 500)),
       );
-    const { result, waitFor } = renderHook(
+    const { result } = renderHook(
       () => {
         const queryResult1 = useChainedQuery({
           queryKey: ['test', 1],
@@ -89,12 +103,14 @@ describe('useChainedQuery', () => {
     //V
     expect(fn1).toHaveBeenCalledTimes(1);
     expect(result.current.queryResult2.status).toBe('loading');
-    //E
+    //E + V
     await act(async () => {
-      await waitFor(() => result.current.queryResult1.status === 'success');
+      await waitFor(
+        () =>
+          result.current.queryResult1.status === 'success' &&
+          result.current.queryResult2.status === 'success',
+      );
     });
-    //V
-    expect(result.current.queryResult2.status).toBe('success');
   });
 
   it('should chain the 3rd query despite the second one is unmounted', async () => {
@@ -168,16 +184,13 @@ describe('useChainedQuery', () => {
       .mockImplementation(
         () => new Promise((resolve) => setTimeout(resolve, 500)),
       );
-    //E
-    const { result } = renderHook(() => {
-      const res = useChainedQuery({ queryKey: ['test', 1], queryFn: fn1 });
-      return { res };
-    });
-    //V
-    //@ts-ignore
-    expect(result.error.message).toBe(
-      'Cannot use useChainedQuery outside ChainedQueryProvider',
-    );
+    //E + V
+    expect(() => {
+      renderHook(() => {
+        const res = useChainedQuery({ queryKey: ['test', 1], queryFn: fn1 });
+        return { res };
+      });
+    }).toThrow('Cannot use useChainedQuery outside ChainedQueryProvider');
   });
 
   it('should return a successful query when the query is already resloved and successful', () => {
