@@ -13,7 +13,7 @@ describe('useChainedQuery', () => {
   beforeEach(() => {
     client.clear();
   });
-  it.only('should execute 2 queries one after the other one', async () => {
+  it('should execute 2 queries one after the other one', async () => {
     //S
     const fn1 = jest
       .fn()
