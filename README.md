@@ -69,7 +69,7 @@ export default function App() {
 
 ### useChainedMutations
 
-#### Basic Usage (Static Slots)
+#### Basic Usage (Static Mutations)
 
 ```tsx
 import { useMutation } from 'react-query';
@@ -94,7 +94,7 @@ export default function App() {
   const updateUser2 = useUpdatePost();
 
   const { steps, isComplete, hasError, start } = useChainedMutations({
-    slots: [
+    mutations: [
       { id: 'user1', label: 'Update User 1', mutation: updateUser1 },
       { id: 'user2', label: 'Update User 2', mutation: updateUser2 },
     ],
@@ -124,18 +124,18 @@ export default function App() {
 }
 ```
 
-#### Dynamic Slots (for dynamic lists)
+#### Dynamic Mutations (for dynamic lists)
 
-When you need to create slots from a dynamic array (e.g., user-selected items), use `hook` instead of `mutation`:
+When you need to create mutations from a dynamic array (e.g., user-selected items), use `hook` instead of `mutation`:
 
 ```tsx
 const userIds = ['1', '2', '3']; // Could come from props or state
 
 const { Slots, steps, start } = useChainedMutations({
-  slots: userIds.map((id) => ({
+  mutations: userIds.map((id) => ({
     id: `user-${id}`,
     label: `Update User ${id}`,
-    hook: useUpdatePost, // Hook will be called internally for each slot
+    hook: useUpdatePost, // Hook will be called internally for each mutation
   })),
   variables: Object.fromEntries(
     userIds.map((id, i) => [`user-${id}`, (prev) => (i === 0 ? id : prev[i - 1].data.userId)])
@@ -144,7 +144,7 @@ const { Slots, steps, start } = useChainedMutations({
 
 return (
   <>
-    {Slots} {/* Required: renders hidden components that call hooks */}
+    {Slots} {/* Required: renders hidden components that call hooks for dynamic mutations */}
     <button onClick={start}>Start</button>
   </>
 );
@@ -154,13 +154,13 @@ return (
 
 | Config | Type | Description |
 |--------|------|-------------|
-| `slots` | `Slot[]` | Array with `id`, `label`, and either `mutation` (static) or `hook` (dynamic) |
-| `variables` | `Record<string, (prev) => unknown>` | Functions to compute variables. Access results via `prev.slotId.data` (recommended) or `prev[i].data`. **Note:** Slot ids should not be numeric strings (`"0"`, `"1"`) or array method names (`"length"`, `"push"`, `"map"`, etc.) as they conflict with array properties. |
+| `mutations` | `MutationConfig[]` | Array with `id`, `label`, and either `mutation` (static) or `hook` (dynamic) |
+| `variables` | `Record<string, (prev) => unknown>` | Functions to compute variables. Access results via `prev.mutationId.data` (recommended) or `prev[i].data`. **Note:** Mutation ids should not be numeric strings (`"0"`, `"1"`) or array method names (`"length"`, `"push"`, `"map"`, etc.) as they conflict with array properties. |
 | `autoStart` | `boolean` | Auto-start when ready. Default: `true` |
 
 | Return | Type | Description |
 |--------|------|-------------|
-| `Slots` | `ReactNode` | Render this for dynamic slots |
+| `Slots` | `ReactNode` | Render this for dynamic mutations |
 | `steps` | `StepStatus[]` | `{ id, label, step, status, retry }` |
 | `isReady` | `boolean` | All mutations registered |
 | `isComplete` | `boolean` | All succeeded |
