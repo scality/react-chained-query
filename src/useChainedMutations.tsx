@@ -19,21 +19,21 @@ type MutationInstance = any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type MutationHook = () => any;
 
-/** A slot with a pre-created mutation (hook already called by consumer) */
-export interface StaticSlot {
+/** A mutation config with a pre-created mutation (hook already called by consumer) */
+export interface StaticMutationConfig {
   id: string;
   label: string;
   mutation: MutationInstance;
 }
 
-/** A slot with a hook function (will be called via internal component) */
-export interface DynamicSlot {
+/** A mutation config with a hook function (will be called via internal component) */
+export interface DynamicMutationConfig {
   id: string;
   label: string;
   hook: MutationHook;
 }
 
-export type Slot = StaticSlot | DynamicSlot;
+export type MutationConfig = StaticMutationConfig | DynamicMutationConfig;
 
 export interface StepStatus {
   id: string;
@@ -51,9 +51,9 @@ export interface PreviousResult<T = unknown> {
 /**
  * Enhanced array that supports both index and key-based access:
  * - prev[0].data - access by index
- * - prev.accountId.data - access by slot id
+ * - prev.accountId.data - access by mutation id
  *
- * **Note:** Slot ids should not be purely numeric strings (e.g., "0", "1") or
+ * **Note:** Mutation ids should not be purely numeric strings (e.g., "0", "1") or
  * array method names (e.g., "length", "push", "map") as they will conflict
  * with array properties. A warning will be logged in development if reserved
  * ids are detected.
@@ -75,13 +75,15 @@ function createPreviousResults(results: PreviousResult[]): PreviousResults {
   return enhanced;
 }
 
-const isStaticSlot = (slot: Slot): slot is StaticSlot => 'mutation' in slot;
+const isStaticMutationConfig = (
+  config: MutationConfig,
+): config is StaticMutationConfig => 'mutation' in config;
 
 /**
- * Reserved slot ids that would conflict with array properties/methods.
- * Using these as slot ids will cause issues with key-based access in PreviousResults.
+ * Reserved mutation ids that would conflict with array properties/methods.
+ * Using these as mutation ids will cause issues with key-based access in PreviousResults.
  */
-const RESERVED_SLOT_IDS = new Set([
+const RESERVED_MUTATION_IDS = new Set([
   'length',
   'at', 'concat', 'copyWithin', 'entries', 'every', 'fill', 'filter',
   'find', 'findIndex', 'findLast', 'findLastIndex', 'flat', 'flatMap',
@@ -91,30 +93,30 @@ const RESERVED_SLOT_IDS = new Set([
   'toSorted', 'toSpliced', 'toString', 'unshift', 'values', 'with',
 ]);
 
-function isReservedSlotId(id: string): boolean {
-  return /^\d+$/.test(id) || RESERVED_SLOT_IDS.has(id);
+function isReservedMutationId(id: string): boolean {
+  return /^\d+$/.test(id) || RESERVED_MUTATION_IDS.has(id);
 }
 
-interface HookSlotRendererProps {
-  slot: DynamicSlot;
+interface HookMutationRendererProps {
+  config: DynamicMutationConfig;
   onRegister: (id: string, mutation: MutationInstance) => void;
 }
 
-const HookSlotRenderer = React.memo<HookSlotRendererProps>(
-  ({ slot, onRegister }) => {
-    const mutation = slot.hook();
+const HookMutationRenderer = React.memo<HookMutationRendererProps>(
+  ({ config, onRegister }) => {
+    const mutation = config.hook();
 
     useEffect(() => {
-      onRegister(slot.id, mutation);
-    }, [onRegister, slot.id, mutation]);
+      onRegister(config.id, mutation);
+    }, [onRegister, config.id, mutation]);
 
     return null;
   },
 );
-HookSlotRenderer.displayName = 'HookSlotRenderer';
+HookMutationRenderer.displayName = 'HookMutationRenderer';
 
 export interface ChainedMutationsConfig {
-  slots: Slot[];
+  mutations: MutationConfig[];
   variables: VariablesResolvers;
   autoStart?: boolean;
 }
@@ -139,7 +141,7 @@ export interface ChainedMutationsResult {
  * const createAccount = useCreateAccountMutation();
  *
  * const { Slots, steps, isComplete, getResult } = useChainedMutations({
- *   slots: [
+ *   mutations: [
  *     { id: 'account', label: 'Create Account', mutation: createAccount },
  *     ...buckets.map(b => ({
  *       id: `bucket-${b.name}`,
@@ -169,7 +171,7 @@ export interface ChainedMutationsResult {
 export function useChainedMutations(
   config: ChainedMutationsConfig,
 ): ChainedMutationsResult {
-  const { slots, variables, autoStart = true } = config;
+  const { mutations, variables, autoStart = true } = config;
 
   const [dynamicMutations, setDynamicMutations] = useState<
     Record<string, MutationInstance>
@@ -179,22 +181,25 @@ export function useChainedMutations(
     {},
   );
 
-  const executionOrder = useMemo(() => slots.map((s) => s.id), [slots]);
+  const executionOrder = useMemo(
+    () => mutations.map((m) => m.id),
+    [mutations],
+  );
 
-  // Warn about reserved slot ids in development
+  // Warn about reserved mutation ids in development
   useEffect(() => {
     if (process.env.NODE_ENV !== 'production') {
-      const reserved = slots.filter((s) => isReservedSlotId(s.id));
+      const reserved = mutations.filter((m) => isReservedMutationId(m.id));
       if (reserved.length > 0) {
         console.warn(
-          `[useChainedMutations] Slot ids ${reserved.map((s) => `"${s.id}"`).join(', ')} ` +
+          `[useChainedMutations] Mutation ids ${reserved.map((m) => `"${m.id}"`).join(', ')} ` +
             'are reserved (numeric strings or array methods). ' +
-            'Key-based access (prev.slotId) may not work correctly. ' +
-            'Use index-based access (prev[0]) instead, or rename the slots.',
+            'Key-based access (prev.mutationId) may not work correctly. ' +
+            'Use index-based access (prev[0]) instead, or rename the mutations.',
         );
       }
     }
-  }, [slots]);
+  }, [mutations]);
 
   const register = useCallback((id: string, mutation: MutationInstance) => {
     setDynamicMutations((prev) => {
@@ -210,9 +215,9 @@ export function useChainedMutations(
     });
   }, []);
 
-  // Cleanup removed slots
+  // Cleanup removed mutations
   useEffect(() => {
-    const validIds = new Set(slots.map((s) => s.id));
+    const validIds = new Set(mutations.map((m) => m.id));
     setDynamicMutations((prev) => {
       const hasStale = Object.keys(prev).some((id) => !validIds.has(id));
       if (!hasStale) return prev;
@@ -220,17 +225,22 @@ export function useChainedMutations(
         Object.entries(prev).filter(([id]) => validIds.has(id)),
       );
     });
-  }, [slots]);
+  }, [mutations]);
 
-  const slotMap = useMemo(() => new Map(slots.map((s) => [s.id, s])), [slots]);
+  const mutationConfigMap = useMemo(
+    () => new Map(mutations.map((m) => [m.id, m])),
+    [mutations],
+  );
 
   const getMutation = useCallback(
     (id: string): MutationInstance | undefined => {
-      const slot = slotMap.get(id);
-      if (!slot) return undefined;
-      return isStaticSlot(slot) ? slot.mutation : dynamicMutations[id];
+      const config = mutationConfigMap.get(id);
+      if (!config) return undefined;
+      return isStaticMutationConfig(config)
+        ? config.mutation
+        : dynamicMutations[id];
     },
-    [slotMap, dynamicMutations],
+    [mutationConfigMap, dynamicMutations],
   );
 
   const isReady = useMemo(
@@ -359,8 +369,8 @@ export function useChainedMutations(
     let hasPreviousError = false;
     return executionOrder
       .map((id, index) => {
-        const slot = slotMap.get(id);
-        if (!slot) return null;
+        const config = mutationConfigMap.get(id);
+        if (!config) return null;
 
         const mutation = getMutation(id);
         if (!mutation) return null;
@@ -385,14 +395,14 @@ export function useChainedMutations(
 
         return {
           id,
-          label: slot.label,
+          label: config.label,
           step: index + 1,
           status,
           retry: getRetryFn(index),
         };
       })
       .filter((s): s is StepStatus => s !== null);
-  }, [executionOrder, slotMap, getMutation, getRetryFn, executionErrors]);
+  }, [executionOrder, mutationConfigMap, getMutation, getRetryFn, executionErrors]);
 
   const isComplete =
     steps.length > 0 && steps.every((s) => s.status === 'success');
@@ -423,20 +433,27 @@ export function useChainedMutations(
     setExecutionErrors({});
   }, []);
 
-  const dynamicSlots = useMemo(
-    () => slots.filter((s): s is DynamicSlot => !isStaticSlot(s)),
-    [slots],
+  const dynamicConfigs = useMemo(
+    () =>
+      mutations.filter(
+        (m): m is DynamicMutationConfig => !isStaticMutationConfig(m),
+      ),
+    [mutations],
   );
 
   const Slots = useMemo(
     () => (
       <>
-        {dynamicSlots.map((slot) => (
-          <HookSlotRenderer key={slot.id} slot={slot} onRegister={register} />
+        {dynamicConfigs.map((config) => (
+          <HookMutationRenderer
+            key={config.id}
+            config={config}
+            onRegister={register}
+          />
         ))}
       </>
     ),
-    [dynamicSlots, register],
+    [dynamicConfigs, register],
   );
 
   return {

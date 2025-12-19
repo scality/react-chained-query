@@ -25,7 +25,7 @@ describe('useChainedMutations', () => {
       });
 
       const config: ChainedMutationsConfig = {
-        slots: [{ id: 'test', label: 'Test', mutation }],
+        mutations: [{ id: 'test', label: 'Test', mutation }],
         variables: { test: () => ({ input: 'value' }) },
         autoStart: false,
       };
@@ -45,11 +45,11 @@ describe('useChainedMutations', () => {
     });
   });
 
-  describe('Static Slots', () => {
+  describe('Static Mutations', () => {
     it('should be ready immediately with static mutations', () => {
       const mutation = createMockMutation();
       const config: ChainedMutationsConfig = {
-        slots: [{ id: 'test', label: 'Test', mutation }],
+        mutations: [{ id: 'test', label: 'Test', mutation }],
         variables: { test: () => ({}) },
         autoStart: false,
       };
@@ -67,7 +67,7 @@ describe('useChainedMutations', () => {
       const mutation1 = createMockMutation();
       const mutation2 = createMockMutation();
       const config: ChainedMutationsConfig = {
-        slots: [
+        mutations: [
           { id: 'first', label: 'First', mutation: mutation1 },
           { id: 'second', label: 'Second', mutation: mutation2 },
         ],
@@ -87,13 +87,13 @@ describe('useChainedMutations', () => {
     });
   });
 
-  describe('Dynamic Slots', () => {
+  describe('Dynamic Mutations', () => {
     it('should render dynamic hook components via Slots', async () => {
       const mutation = createMockMutation();
       const mockHook = jest.fn(() => mutation);
 
       const config: ChainedMutationsConfig = {
-        slots: [{ id: 'dynamic', label: 'Dynamic', hook: mockHook }],
+        mutations: [{ id: 'dynamic', label: 'Dynamic', hook: mockHook }],
         variables: { dynamic: () => ({}) },
         autoStart: false,
       };
@@ -124,7 +124,7 @@ describe('useChainedMutations', () => {
       const mockHook = createMockHook(mutation);
 
       const config: ChainedMutationsConfig = {
-        slots: [{ id: 'dynamic', label: 'Dynamic', hook: mockHook }],
+        mutations: [{ id: 'dynamic', label: 'Dynamic', hook: mockHook }],
         variables: { dynamic: () => ({}) },
         autoStart: false,
       };
@@ -153,7 +153,7 @@ describe('useChainedMutations', () => {
       });
 
       const config: ChainedMutationsConfig = {
-        slots: [
+        mutations: [
           { id: 'first', label: 'First', mutation: mutation1 },
           { id: 'second', label: 'Second', mutation: mutation2 },
         ],
@@ -199,7 +199,7 @@ describe('useChainedMutations', () => {
       }));
 
       const config: ChainedMutationsConfig = {
-        slots: [
+        mutations: [
           { id: 'account', label: 'Account', mutation: mutation1 },
           { id: 'bucket', label: 'Bucket', mutation: mutation2 },
           { id: 'policy', label: 'Policy', mutation: mutation3 },
@@ -226,7 +226,7 @@ describe('useChainedMutations', () => {
       );
     });
 
-    it('should support key-based access to previous results (prev.slotId.data)', () => {
+    it('should support key-based access to previous results (prev.mutationId.data)', () => {
       const mutation1 = createMockMutation();
       const mutation2 = createMockMutation();
       const mutation3 = createMockMutation();
@@ -248,7 +248,7 @@ describe('useChainedMutations', () => {
       }));
 
       const config: ChainedMutationsConfig = {
-        slots: [
+        mutations: [
           { id: 'account', label: 'Account', mutation: mutation1 },
           { id: 'bucket', label: 'Bucket', mutation: mutation2 },
           { id: 'policy', label: 'Policy', mutation: mutation3 },
@@ -295,7 +295,7 @@ describe('useChainedMutations', () => {
       }));
 
       const config: ChainedMutationsConfig = {
-        slots: [
+        mutations: [
           { id: 'first', label: 'First', mutation: mutation1 },
           { id: 'second', label: 'Second', mutation: mutation2 },
           { id: 'third', label: 'Third', mutation: mutation3 },
@@ -329,7 +329,7 @@ describe('useChainedMutations', () => {
       });
 
       const config: ChainedMutationsConfig = {
-        slots: [{ id: 'test', label: 'Test', mutation }],
+        mutations: [{ id: 'test', label: 'Test', mutation }],
         variables: { test: () => ({}) },
         // autoStart defaults to true
       };
@@ -343,7 +343,7 @@ describe('useChainedMutations', () => {
       const mutation = createMockMutation();
 
       const config: ChainedMutationsConfig = {
-        slots: [{ id: 'test', label: 'Test', mutation }],
+        mutations: [{ id: 'test', label: 'Test', mutation }],
         variables: { test: () => ({}) },
         autoStart: false,
       };
@@ -360,7 +360,7 @@ describe('useChainedMutations', () => {
       });
 
       const config: ChainedMutationsConfig = {
-        slots: [{ id: 'test', label: 'Test', mutation }],
+        mutations: [{ id: 'test', label: 'Test', mutation }],
         variables: { test: () => ({}) },
         autoStart: false,
       };
@@ -383,7 +383,7 @@ describe('useChainedMutations', () => {
       });
 
       const config: ChainedMutationsConfig = {
-        slots: [{ id: 'test', label: 'Test', mutation }],
+        mutations: [{ id: 'test', label: 'Test', mutation }],
         variables: { test: () => ({}) },
         autoStart: false,
       };
@@ -406,7 +406,7 @@ describe('useChainedMutations', () => {
       });
 
       const config: ChainedMutationsConfig = {
-        slots: [{ id: 'test', label: 'Test', mutation }],
+        mutations: [{ id: 'test', label: 'Test', mutation }],
         variables: { test: () => ({}) },
         autoStart: false,
       };
@@ -436,7 +436,7 @@ describe('useChainedMutations', () => {
       const mockHook = createMockHook(mutation);
 
       const config: ChainedMutationsConfig = {
-        slots: [{ id: 'dynamic', label: 'Dynamic', hook: mockHook }],
+        mutations: [{ id: 'dynamic', label: 'Dynamic', hook: mockHook }],
         variables: { dynamic: () => ({}) },
         autoStart: false,
       };
@@ -464,7 +464,7 @@ describe('useChainedMutations', () => {
       const mutation = createMockMutation({ status: 'idle' });
 
       const config: ChainedMutationsConfig = {
-        slots: [{ id: 'test', label: 'Test', mutation }],
+        mutations: [{ id: 'test', label: 'Test', mutation }],
         variables: { test: () => ({}) },
         autoStart: false,
       };
@@ -480,7 +480,7 @@ describe('useChainedMutations', () => {
       const mutation = createMockMutation({ status: 'loading' });
 
       const config: ChainedMutationsConfig = {
-        slots: [{ id: 'test', label: 'Test', mutation }],
+        mutations: [{ id: 'test', label: 'Test', mutation }],
         variables: { test: () => ({}) },
         autoStart: false,
       };
@@ -494,7 +494,7 @@ describe('useChainedMutations', () => {
       const mutation = createMockMutation({ status: 'success', data: { id: 1 } });
 
       const config: ChainedMutationsConfig = {
-        slots: [{ id: 'test', label: 'Test', mutation }],
+        mutations: [{ id: 'test', label: 'Test', mutation }],
         variables: { test: () => ({}) },
         autoStart: false,
       };
@@ -509,7 +509,7 @@ describe('useChainedMutations', () => {
       const mutation = createMockMutation({ status: 'error' });
 
       const config: ChainedMutationsConfig = {
-        slots: [{ id: 'test', label: 'Test', mutation }],
+        mutations: [{ id: 'test', label: 'Test', mutation }],
         variables: { test: () => ({}) },
         autoStart: false,
       };
@@ -525,7 +525,7 @@ describe('useChainedMutations', () => {
       const mutation2 = createMockMutation({ status: 'idle' });
 
       const config: ChainedMutationsConfig = {
-        slots: [
+        mutations: [
           { id: 'first', label: 'First', mutation: mutation1 },
           { id: 'second', label: 'Second', mutation: mutation2 },
         ],
@@ -550,7 +550,7 @@ describe('useChainedMutations', () => {
       const mutation3 = createMockMutation({ status: 'success' });
 
       const config: ChainedMutationsConfig = {
-        slots: [
+        mutations: [
           { id: 'first', label: 'First', mutation: mutation1 },
           { id: 'second', label: 'Second', mutation: mutation2 },
           { id: 'third', label: 'Third', mutation: mutation3 },
@@ -577,7 +577,7 @@ describe('useChainedMutations', () => {
       });
 
       const config: ChainedMutationsConfig = {
-        slots: [{ id: 'test', label: 'Test', mutation }],
+        mutations: [{ id: 'test', label: 'Test', mutation }],
         variables: { test: () => ({}) },
         autoStart: false,
       };
@@ -609,7 +609,7 @@ describe('useChainedMutations', () => {
       });
 
       const config: ChainedMutationsConfig = {
-        slots: [{ id: 'test', label: 'Test', mutation }],
+        mutations: [{ id: 'test', label: 'Test', mutation }],
         variables: { test: variablesFn },
         autoStart: false,
       };
@@ -640,7 +640,7 @@ describe('useChainedMutations', () => {
       });
 
       const config: ChainedMutationsConfig = {
-        slots: [{ id: 'user', label: 'User', mutation }],
+        mutations: [{ id: 'user', label: 'User', mutation }],
         variables: { user: () => ({}) },
         autoStart: false,
       };
@@ -652,11 +652,11 @@ describe('useChainedMutations', () => {
       expect(userData).toEqual({ userId: 123, name: 'Test User' });
     });
 
-    it('should return undefined for non-existent slot', () => {
+    it('should return undefined for non-existent mutation', () => {
       const mutation = createMockMutation();
 
       const config: ChainedMutationsConfig = {
-        slots: [{ id: 'test', label: 'Test', mutation }],
+        mutations: [{ id: 'test', label: 'Test', mutation }],
         variables: { test: () => ({}) },
         autoStart: false,
       };
@@ -670,7 +670,7 @@ describe('useChainedMutations', () => {
       const mutation = createMockMutation({ status: 'idle' });
 
       const config: ChainedMutationsConfig = {
-        slots: [{ id: 'test', label: 'Test', mutation }],
+        mutations: [{ id: 'test', label: 'Test', mutation }],
         variables: { test: () => ({}) },
         autoStart: false,
       };
@@ -692,7 +692,7 @@ describe('useChainedMutations', () => {
       });
 
       const config: ChainedMutationsConfig = {
-        slots: [{ id: 'test', label: 'Test', mutation }],
+        mutations: [{ id: 'test', label: 'Test', mutation }],
         variables: { test: () => ({}) },
         autoStart: false,
       };
@@ -716,7 +716,7 @@ describe('useChainedMutations', () => {
       const mutation = createMockMutation();
 
       const config: ChainedMutationsConfig = {
-        slots: [{ id: 'test', label: 'Test', mutation }],
+        mutations: [{ id: 'test', label: 'Test', mutation }],
         variables: {}, // Missing resolver
         autoStart: false,
       };
@@ -747,7 +747,7 @@ describe('useChainedMutations', () => {
       const variables: Record<string, () => unknown> = {};
 
       const config: ChainedMutationsConfig = {
-        slots: [{ id: 'test', label: 'Test', mutation }],
+        mutations: [{ id: 'test', label: 'Test', mutation }],
         variables,
         autoStart: false,
       };
@@ -781,7 +781,7 @@ describe('useChainedMutations', () => {
       const mutation = createMockMutation();
 
       const config: ChainedMutationsConfig = {
-        slots: [{ id: 'test', label: 'Test', mutation }],
+        mutations: [{ id: 'test', label: 'Test', mutation }],
         variables: {
           test: () => {
             throw new Error('Resolver error');
@@ -818,7 +818,7 @@ describe('useChainedMutations', () => {
       const invalidMutation = { status: 'idle' }; // Missing mutate function
 
       const config: ChainedMutationsConfig = {
-        slots: [{ id: 'test', label: 'Test', mutation: invalidMutation }],
+        mutations: [{ id: 'test', label: 'Test', mutation: invalidMutation }],
         variables: { test: () => ({}) },
         autoStart: false,
       };
@@ -844,7 +844,7 @@ describe('useChainedMutations', () => {
       });
 
       const config: ChainedMutationsConfig = {
-        slots: [{ id: 'test', label: 'Test', mutation }],
+        mutations: [{ id: 'test', label: 'Test', mutation }],
         variables: { test: () => ({}) },
         autoStart: false,
       };
@@ -876,7 +876,7 @@ describe('useChainedMutations', () => {
       const mutation2 = createMockMutation();
 
       const config: ChainedMutationsConfig = {
-        slots: [
+        mutations: [
           { id: 'first', label: 'First', mutation: mutation1 },
           { id: 'second', label: 'Second', mutation: mutation2 },
         ],
@@ -913,7 +913,7 @@ describe('useChainedMutations', () => {
       });
 
       const config: ChainedMutationsConfig = {
-        slots: [{ id: 'test', label: 'Test', mutation }],
+        mutations: [{ id: 'test', label: 'Test', mutation }],
         variables: {
           test: () => {
             if (shouldThrow) {
@@ -962,7 +962,7 @@ describe('useChainedMutations', () => {
       });
 
       const config: ChainedMutationsConfig = {
-        slots: [{ id: 'test', label: 'Test', mutation }],
+        mutations: [{ id: 'test', label: 'Test', mutation }],
         variables: {
           test: () => {
             callCount++;
@@ -997,7 +997,7 @@ describe('useChainedMutations', () => {
   });
 
   describe('Configuration Changes', () => {
-    it('should reset when slots change', () => {
+    it('should reset when mutations change', () => {
       const mutation1 = createMockMutation();
       const mutation2 = createMockMutation();
 
@@ -1009,7 +1009,7 @@ describe('useChainedMutations', () => {
       });
 
       const initialConfig: ChainedMutationsConfig = {
-        slots: [{ id: 'first', label: 'First', mutation: mutation1 }],
+        mutations: [{ id: 'first', label: 'First', mutation: mutation1 }],
         variables: { first: () => ({}) },
         autoStart: false,
       };
@@ -1025,9 +1025,9 @@ describe('useChainedMutations', () => {
 
       expect(mutation1.mutate).toHaveBeenCalledTimes(1);
 
-      // Change slots
+      // Change mutations
       const newConfig: ChainedMutationsConfig = {
-        slots: [
+        mutations: [
           { id: 'first', label: 'First', mutation: mutation1 },
           { id: 'second', label: 'Second', mutation: mutation2 },
         ],
@@ -1048,12 +1048,12 @@ describe('useChainedMutations', () => {
       expect(mutation1.mutate).toHaveBeenCalledTimes(2);
     });
 
-    it('should cleanup stale slots', () => {
+    it('should cleanup stale mutations', () => {
       const mutation1 = createMockMutation({ status: 'success', data: { a: 1 } });
       const mutation2 = createMockMutation({ status: 'success', data: { b: 2 } });
 
       const initialConfig: ChainedMutationsConfig = {
-        slots: [
+        mutations: [
           { id: 'first', label: 'First', mutation: mutation1 },
           { id: 'second', label: 'Second', mutation: mutation2 },
         ],
@@ -1071,9 +1071,9 @@ describe('useChainedMutations', () => {
 
       expect(result.current.steps).toHaveLength(2);
 
-      // Remove second slot
+      // Remove second mutation
       const newConfig: ChainedMutationsConfig = {
-        slots: [{ id: 'first', label: 'First', mutation: mutation1 }],
+        mutations: [{ id: 'first', label: 'First', mutation: mutation1 }],
         variables: { first: () => ({}) },
         autoStart: false,
       };
@@ -1085,14 +1085,14 @@ describe('useChainedMutations', () => {
     });
   });
 
-  describe('Mixed Static and Dynamic Slots', () => {
-    it('should handle mixed slots correctly', async () => {
+  describe('Mixed Static and Dynamic Mutations', () => {
+    it('should handle mixed mutations correctly', async () => {
       const staticMutation = createMockMutation({ status: 'success', data: { static: true } });
       const dynamicMutation = createMockMutation({ status: 'success', data: { dynamic: true } });
       const mockHook = jest.fn(() => dynamicMutation);
 
       const config: ChainedMutationsConfig = {
-        slots: [
+        mutations: [
           { id: 'static', label: 'Static', mutation: staticMutation },
           { id: 'dynamic', label: 'Dynamic', hook: mockHook },
         ],
@@ -1125,26 +1125,26 @@ describe('useChainedMutations', () => {
       // Verify hook was called
       expect(mockHook).toHaveBeenCalled();
 
-      // Static slot should have data immediately
+      // Static mutation should have data immediately
       expect(screen.getByTestId('static-data').textContent).toBe('{"static":true}');
 
-      // Wait for dynamic slot to be ready
+      // Wait for dynamic mutation to be ready
       await waitFor(() => {
         expect(screen.getByTestId('ready').textContent).toBe('ready');
       });
 
-      // Both slots should have 2 steps
+      // Both mutations should have 2 steps
       expect(screen.getByTestId('steps').textContent).toBe('2');
 
-      // Dynamic slot should also have data
+      // Dynamic mutation should also have data
       expect(screen.getByTestId('dynamic-data').textContent).toBe('{"dynamic":true}');
     });
   });
 
-  describe('Empty Slots', () => {
-    it('should handle empty slots array', () => {
+  describe('Empty Mutations', () => {
+    it('should handle empty mutations array', () => {
       const config: ChainedMutationsConfig = {
-        slots: [],
+        mutations: [],
         variables: {},
         autoStart: false,
       };
@@ -1157,13 +1157,13 @@ describe('useChainedMutations', () => {
     });
   });
 
-  describe('Reserved Slot Ids', () => {
-    it('should warn when using numeric slot id', () => {
+  describe('Reserved Mutation Ids', () => {
+    it('should warn when using numeric mutation id', () => {
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
       const mutation = createMockMutation();
 
       const config: ChainedMutationsConfig = {
-        slots: [{ id: '0', label: 'Numeric', mutation }],
+        mutations: [{ id: '0', label: 'Numeric', mutation }],
         variables: { '0': () => ({}) },
         autoStart: false,
       };
@@ -1171,18 +1171,18 @@ describe('useChainedMutations', () => {
       renderHook(() => useChainedMutations(config));
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Slot ids "0" are reserved'),
+        expect.stringContaining('Mutation ids "0" are reserved'),
       );
 
       consoleSpy.mockRestore();
     });
 
-    it('should warn when using array method name as slot id', () => {
+    it('should warn when using array method name as mutation id', () => {
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
       const mutation = createMockMutation();
 
       const config: ChainedMutationsConfig = {
-        slots: [
+        mutations: [
           { id: 'length', label: 'Length', mutation },
           { id: 'push', label: 'Push', mutation },
         ],
@@ -1205,12 +1205,12 @@ describe('useChainedMutations', () => {
       consoleSpy.mockRestore();
     });
 
-    it('should not warn for valid slot ids', () => {
+    it('should not warn for valid mutation ids', () => {
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
       const mutation = createMockMutation();
 
       const config: ChainedMutationsConfig = {
-        slots: [
+        mutations: [
           { id: 'account', label: 'Account', mutation },
           { id: 'bucket-data', label: 'Bucket', mutation },
         ],
