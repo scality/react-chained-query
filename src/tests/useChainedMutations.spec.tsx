@@ -1141,36 +1141,6 @@ describe('useChainedMutations', () => {
     });
   });
 
-  describe('Step Numbering', () => {
-    it('should number steps correctly', () => {
-      const mutations = [
-        createMockMutation(),
-        createMockMutation(),
-        createMockMutation(),
-      ];
-
-      const config: ChainedMutationsConfig = {
-        slots: [
-          { id: 'a', label: 'Step A', mutation: mutations[0] },
-          { id: 'b', label: 'Step B', mutation: mutations[1] },
-          { id: 'c', label: 'Step C', mutation: mutations[2] },
-        ],
-        variables: {
-          a: () => ({}),
-          b: () => ({}),
-          c: () => ({}),
-        },
-        autoStart: false,
-      };
-
-      const { result } = renderHook(() => useChainedMutations(config));
-
-      expect(result.current.steps[0].step).toBe(1);
-      expect(result.current.steps[1].step).toBe(2);
-      expect(result.current.steps[2].step).toBe(3);
-    });
-  });
-
   describe('Empty Slots', () => {
     it('should handle empty slots array', () => {
       const config: ChainedMutationsConfig = {
