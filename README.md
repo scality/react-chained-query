@@ -10,7 +10,7 @@ By managing a queue and executing the request one after another, it could give t
 
 ### useChainedMutations
 
-This `useChainedMutations` hook takes an array of mutations and a function to compute the variables for the next mutation in the chain. It returns an object containing a `mutate` function that triggers the chain of mutations, a `computeVariablesForNext` function that computes the variables for the next mutation, and an array of `mutationsWithRetry` that includes a retry function for each mutation.
+`useChainedMutations` hook chains mutations sequentially with retry support. It supports both static (pre-created) and dynamic (hook-based) mutations. Each step receives results from previous mutations to compute its variables.
 
 ## Install
 
@@ -22,10 +22,9 @@ npm install @scality/react-chained-query
 
 ### useChainedQuery
 
-```js
+```tsx
 import { QueryClient, QueryClientProvider } from 'react-query';
-import { ChainedQueryProvider, useChainedQuery } from './useChainedQuery';
-import { useEffect, useState } from 'react';
+import { ChainedQueryProvider, useChainedQuery } from '@scality/react-chained-query';
 
 const queryClient = new QueryClient();
 
@@ -70,58 +69,105 @@ export default function App() {
 
 ### useChainedMutations
 
-```js
-import { useMutation } from 'react-query';
-import { useChainedMutations } from './useChainedMutations';
+#### Basic Usage (Static Slots)
 
-const useUpdatePosts = () => {
+```tsx
+import { useMutation } from 'react-query';
+import { useChainedMutations } from '@scality/react-chained-query';
+
+const useUpdatePost = () => {
   return useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(
-        `https://jsonplaceholder.typicode.com/posts/${id}`,
-        {
-          headers: {
-            'Content-type': 'application/json; charset=UTF-8',
-          },
-          method: 'PUT',
-          body: JSON.stringify({
-            id: 1,
-            title: 'foo',
-            body: 'bar',
-            userId: id,
-          }),
-        },
-      );
-
+      const res = await fetch(`https://jsonplaceholder.typicode.com/posts/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-type': 'application/json' },
+        body: JSON.stringify({ id, title: 'foo', body: 'bar', userId: id }),
+      });
       if (!res.ok) throw res.statusText;
-
-      return await res.json();
+      return res.json();
     },
   });
 };
 
-const mutations = [{ ...useUpdatePosts, 'user1'}, { ...useUpdatePosts, 'user2'}];
-const { mutate } = useChainedMutations({
-  mutations,
-  computeVariablesForNext: {
-    user1: () => {
-      return 'user1';
-    },
-    user2: () => {
-      return 'user2';
-    }
-  },
-});
-
 export default function App() {
+  const updateUser1 = useUpdatePost();
+  const updateUser2 = useUpdatePost();
+
+  const { steps, isComplete, hasError, start } = useChainedMutations({
+    slots: [
+      { id: 'user1', label: 'Update User 1', mutation: updateUser1 },
+      { id: 'user2', label: 'Update User 2', mutation: updateUser2 },
+    ],
+    variables: {
+      user1: () => '1',
+      user2: (prev) => prev.user1.data.userId, // Access by key (recommended)
+      // Or: (prev) => prev[0].data.userId    // Access by index (still supported)
+    },
+    autoStart: false,
+  });
+
   return (
-    <div className="App">
-      <h2>Hello, useChainedMutations! </h2>
-      <button onClick={() => mutate()}>
+    <div>
+      <button onClick={start}>Start</button>
+      <ul>
+        {steps.map((step) => (
+          <li key={step.id}>
+            {step.label}: {step.status}
+            {step.status === 'error' && <button onClick={step.retry}>Retry</button>}
+          </li>
+        ))}
+      </ul>
+      {isComplete && <p>Done!</p>}
+      {hasError && <p>Error occurred</p>}
     </div>
   );
 }
 ```
+
+#### Dynamic Slots (for dynamic lists)
+
+When you need to create slots from a dynamic array (e.g., user-selected items), use `hook` instead of `mutation`:
+
+```tsx
+const userIds = ['1', '2', '3']; // Could come from props or state
+
+const { Slots, steps, start } = useChainedMutations({
+  slots: userIds.map((id) => ({
+    id: `user-${id}`,
+    label: `Update User ${id}`,
+    hook: useUpdatePost, // Hook will be called internally for each slot
+  })),
+  variables: Object.fromEntries(
+    userIds.map((id, i) => [`user-${id}`, (prev) => (i === 0 ? id : prev[i - 1].data.userId)])
+  ),
+});
+
+return (
+  <>
+    {Slots} {/* Required: renders hidden components that call hooks */}
+    <button onClick={start}>Start</button>
+  </>
+);
+```
+
+#### API
+
+| Config | Type | Description |
+|--------|------|-------------|
+| `slots` | `Slot[]` | Array with `id`, `label`, and either `mutation` (static) or `hook` (dynamic) |
+| `variables` | `Record<string, (prev) => unknown>` | Functions to compute variables. Access results via `prev.slotId.data` (recommended) or `prev[i].data`. **Note:** Slot ids should not be numeric strings (`"0"`, `"1"`) or array method names (`"length"`, `"push"`, `"map"`, etc.) as they conflict with array properties. |
+| `autoStart` | `boolean` | Auto-start when ready. Default: `true` |
+
+| Return | Type | Description |
+|--------|------|-------------|
+| `Slots` | `ReactNode` | Render this for dynamic slots |
+| `steps` | `StepStatus[]` | `{ id, label, step, status, retry }` |
+| `isReady` | `boolean` | All mutations registered |
+| `isComplete` | `boolean` | All succeeded |
+| `hasError` | `boolean` | Any failed |
+| `start` | `() => void` | Manual start |
+| `reset` | `() => void` | Reset chain state, allows `start()` again |
+| `getResult` | `<T>(id: string) => T` | Get mutation result |
 
 ## Advanced Documentation
 
