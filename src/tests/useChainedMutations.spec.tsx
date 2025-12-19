@@ -17,25 +17,31 @@ describe('useChainedMutations', () => {
     jest.useRealTimers();
   });
 
-  describe('Return Structure', () => {
-    it('should return correct structure', () => {
+  describe('Basic Functionality', () => {
+    it('should be able to start and complete a mutation chain', () => {
       const mutation = createMockMutation();
+      mutation.mutate.mockImplementation((vars, opts) => {
+        opts?.onSuccess?.({ result: 'success' });
+      });
+
       const config: ChainedMutationsConfig = {
         slots: [{ id: 'test', label: 'Test', mutation }],
-        variables: { test: () => ({}) },
+        variables: { test: () => ({ input: 'value' }) },
+        autoStart: false,
       };
 
       const { result } = renderHook(() => useChainedMutations(config));
 
-      expect(result.current).toHaveProperty('Slots');
-      expect(result.current).toHaveProperty('steps');
-      expect(result.current).toHaveProperty('isComplete');
-      expect(result.current).toHaveProperty('hasError');
-      expect(result.current).toHaveProperty('isReady');
-      expect(result.current).toHaveProperty('getResult');
-      expect(result.current).toHaveProperty('start');
-      expect(typeof result.current.start).toBe('function');
-      expect(typeof result.current.getResult).toBe('function');
+      expect(result.current.isReady).toBe(true);
+
+      act(() => {
+        result.current.start();
+      });
+
+      expect(mutation.mutate).toHaveBeenCalledWith(
+        { input: 'value' },
+        expect.any(Object),
+      );
     });
   });
 
@@ -217,6 +223,100 @@ describe('useChainedMutations', () => {
           expect.objectContaining({ data: { accountId: 'acc-123' }, id: 'account' }),
           expect.objectContaining({ data: { bucketName: 'my-bucket' }, id: 'bucket' }),
         ]),
+      );
+    });
+
+    it('should support key-based access to previous results (prev.slotId.data)', () => {
+      const mutation1 = createMockMutation();
+      const mutation2 = createMockMutation();
+      const mutation3 = createMockMutation();
+
+      mutation1.mutate.mockImplementation((vars, opts) => {
+        opts?.onSuccess?.({ accountId: 'acc-123' });
+      });
+      mutation2.mutate.mockImplementation((vars, opts) => {
+        opts?.onSuccess?.({ bucketName: 'my-bucket' });
+      });
+      mutation3.mutate.mockImplementation((vars, opts) => {
+        opts?.onSuccess?.({ policyId: 'pol-456' });
+      });
+
+      const variableResolver3 = jest.fn((prev) => ({
+        // Using key-based access instead of index
+        accountId: (prev.account?.data as { accountId?: string })?.accountId,
+        bucketName: (prev.bucket?.data as { bucketName?: string })?.bucketName,
+      }));
+
+      const config: ChainedMutationsConfig = {
+        slots: [
+          { id: 'account', label: 'Account', mutation: mutation1 },
+          { id: 'bucket', label: 'Bucket', mutation: mutation2 },
+          { id: 'policy', label: 'Policy', mutation: mutation3 },
+        ],
+        variables: {
+          account: () => ({}),
+          bucket: () => ({}),
+          policy: variableResolver3,
+        },
+        autoStart: false,
+      };
+
+      const { result } = renderHook(() => useChainedMutations(config));
+
+      act(() => {
+        result.current.start();
+      });
+
+      expect(mutation3.mutate).toHaveBeenCalledWith(
+        { accountId: 'acc-123', bucketName: 'my-bucket' },
+        expect.any(Object),
+      );
+    });
+
+    it('should support mixed index and key-based access', () => {
+      const mutation1 = createMockMutation();
+      const mutation2 = createMockMutation();
+      const mutation3 = createMockMutation();
+
+      mutation1.mutate.mockImplementation((vars, opts) => {
+        opts?.onSuccess?.({ id: 'first-id' });
+      });
+      mutation2.mutate.mockImplementation((vars, opts) => {
+        opts?.onSuccess?.({ id: 'second-id' });
+      });
+      mutation3.mutate.mockImplementation((vars, opts) => {
+        opts?.onSuccess?.({});
+      });
+
+      const variableResolver3 = jest.fn((prev) => ({
+        // Mix of index and key-based access
+        firstById: (prev.first?.data as { id?: string })?.id,
+        secondByIndex: (prev[1]?.data as { id?: string })?.id,
+      }));
+
+      const config: ChainedMutationsConfig = {
+        slots: [
+          { id: 'first', label: 'First', mutation: mutation1 },
+          { id: 'second', label: 'Second', mutation: mutation2 },
+          { id: 'third', label: 'Third', mutation: mutation3 },
+        ],
+        variables: {
+          first: () => ({}),
+          second: () => ({}),
+          third: variableResolver3,
+        },
+        autoStart: false,
+      };
+
+      const { result } = renderHook(() => useChainedMutations(config));
+
+      act(() => {
+        result.current.start();
+      });
+
+      expect(mutation3.mutate).toHaveBeenCalledWith(
+        { firstById: 'first-id', secondByIndex: 'second-id' },
+        expect.any(Object),
       );
     });
   });
@@ -611,7 +711,7 @@ describe('useChainedMutations', () => {
       consoleSpy.mockRestore();
     });
 
-    it('should log error when resolver is missing', () => {
+    it('should set error status when resolver is missing', () => {
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
       const mutation = createMockMutation();
 
@@ -630,11 +730,53 @@ describe('useChainedMutations', () => {
       expect(consoleSpy).toHaveBeenCalledWith(
         expect.stringContaining('Missing variables resolver for: test'),
       );
+      expect(result.current.steps[0].status).toBe('error');
+      expect(result.current.hasError).toBe(true);
 
       consoleSpy.mockRestore();
     });
 
-    it('should catch and log when resolver throws', () => {
+    it('should allow retry after missing resolver is fixed', () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      const mutation = createMockMutation({ status: 'success' });
+      mutation.mutate.mockImplementation((vars, opts) => {
+        opts?.onSuccess?.({});
+      });
+
+      // Use a mutable object so we can add the resolver later
+      const variables: Record<string, () => unknown> = {};
+
+      const config: ChainedMutationsConfig = {
+        slots: [{ id: 'test', label: 'Test', mutation }],
+        variables,
+        autoStart: false,
+      };
+
+      const { result } = renderHook(() => useChainedMutations(config));
+
+      // First attempt - resolver missing
+      act(() => {
+        result.current.start();
+      });
+
+      expect(result.current.steps[0].status).toBe('error');
+      expect(mutation.mutate).not.toHaveBeenCalled();
+
+      // Add the resolver
+      variables.test = () => ({ key: 'value' });
+
+      // Retry should work now
+      act(() => {
+        result.current.steps[0].retry();
+      });
+
+      expect(mutation.mutate).toHaveBeenCalledWith({ key: 'value' }, expect.any(Object));
+      expect(result.current.hasError).toBe(false);
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should set error status when resolver throws', () => {
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
       const mutation = createMockMutation();
 
@@ -664,6 +806,191 @@ describe('useChainedMutations', () => {
 
       // mutation.mutate should not have been called since resolver threw
       expect(mutation.mutate).not.toHaveBeenCalled();
+
+      // Step should show error status
+      expect(result.current.steps[0].status).toBe('error');
+      expect(result.current.hasError).toBe(true);
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should handle invalid mutation instance (missing mutate)', () => {
+      const invalidMutation = { status: 'idle' }; // Missing mutate function
+
+      const config: ChainedMutationsConfig = {
+        slots: [{ id: 'test', label: 'Test', mutation: invalidMutation }],
+        variables: { test: () => ({}) },
+        autoStart: false,
+      };
+
+      const { result } = renderHook(() => useChainedMutations(config));
+
+      // Should not throw when starting
+      expect(() => {
+        act(() => {
+          result.current.start();
+        });
+      }).not.toThrow();
+
+      // Mutation should not have been called (since mutate doesn't exist)
+      expect(result.current.steps[0].status).toBe('idle');
+    });
+
+    it('should handle synchronous error thrown by mutate call', () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      const mutation = createMockMutation();
+      mutation.mutate.mockImplementation(() => {
+        throw new Error('Sync error in mutate');
+      });
+
+      const config: ChainedMutationsConfig = {
+        slots: [{ id: 'test', label: 'Test', mutation }],
+        variables: { test: () => ({}) },
+        autoStart: false,
+      };
+
+      const { result } = renderHook(() => useChainedMutations(config));
+
+      // Should not throw - error should be caught
+      expect(() => {
+        act(() => {
+          result.current.start();
+        });
+      }).not.toThrow();
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('threw synchronously'),
+        expect.any(Error),
+      );
+
+      // Step should show error status
+      expect(result.current.steps[0].status).toBe('error');
+      expect(result.current.hasError).toBe(true);
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should keep subsequent steps idle after resolver error', () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      const mutation1 = createMockMutation();
+      const mutation2 = createMockMutation();
+
+      const config: ChainedMutationsConfig = {
+        slots: [
+          { id: 'first', label: 'First', mutation: mutation1 },
+          { id: 'second', label: 'Second', mutation: mutation2 },
+        ],
+        variables: {
+          first: () => {
+            throw new Error('First resolver failed');
+          },
+          second: () => ({}),
+        },
+        autoStart: false,
+      };
+
+      const { result } = renderHook(() => useChainedMutations(config));
+
+      act(() => {
+        result.current.start();
+      });
+
+      expect(result.current.steps[0].status).toBe('error');
+      expect(result.current.steps[1].status).toBe('idle');
+      expect(result.current.hasError).toBe(true);
+      expect(mutation2.mutate).not.toHaveBeenCalled();
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should clear resolver error after reset and successful retry', () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      const mutation = createMockMutation({ status: 'success' });
+      let shouldThrow = true;
+
+      mutation.mutate.mockImplementation((vars, opts) => {
+        opts?.onSuccess?.({});
+      });
+
+      const config: ChainedMutationsConfig = {
+        slots: [{ id: 'test', label: 'Test', mutation }],
+        variables: {
+          test: () => {
+            if (shouldThrow) {
+              throw new Error('Resolver error');
+            }
+            return {};
+          },
+        },
+        autoStart: false,
+      };
+
+      const { result } = renderHook(() => useChainedMutations(config));
+
+      // First attempt - should error
+      act(() => {
+        result.current.start();
+      });
+
+      expect(result.current.steps[0].status).toBe('error');
+      expect(result.current.hasError).toBe(true);
+
+      // Reset and try again with working resolver
+      shouldThrow = false;
+      act(() => {
+        result.current.reset();
+      });
+
+      act(() => {
+        result.current.start();
+      });
+
+      expect(mutation.mutate).toHaveBeenCalled();
+      expect(result.current.steps[0].status).toBe('success');
+      expect(result.current.hasError).toBe(false);
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should clear error on retry without reset', () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      const mutation = createMockMutation();
+      let callCount = 0;
+
+      mutation.mutate.mockImplementation((vars, opts) => {
+        opts?.onSuccess?.({});
+      });
+
+      const config: ChainedMutationsConfig = {
+        slots: [{ id: 'test', label: 'Test', mutation }],
+        variables: {
+          test: () => {
+            callCount++;
+            if (callCount === 1) {
+              throw new Error('First call fails');
+            }
+            return {};
+          },
+        },
+        autoStart: false,
+      };
+
+      const { result } = renderHook(() => useChainedMutations(config));
+
+      // First attempt - should error
+      act(() => {
+        result.current.start();
+      });
+
+      expect(result.current.steps[0].status).toBe('error');
+
+      // Retry without reset - should clear error and succeed
+      act(() => {
+        result.current.steps[0].retry();
+      });
+
+      expect(mutation.mutate).toHaveBeenCalled();
+      expect(result.current.hasError).toBe(false);
 
       consoleSpy.mockRestore();
     });
@@ -857,6 +1184,78 @@ describe('useChainedMutations', () => {
       expect(result.current.steps).toHaveLength(0);
       expect(result.current.isReady).toBe(true);
       expect(result.current.isComplete).toBe(false); // No steps means not complete
+    });
+  });
+
+  describe('Reserved Slot Ids', () => {
+    it('should warn when using numeric slot id', () => {
+      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+      const mutation = createMockMutation();
+
+      const config: ChainedMutationsConfig = {
+        slots: [{ id: '0', label: 'Numeric', mutation }],
+        variables: { '0': () => ({}) },
+        autoStart: false,
+      };
+
+      renderHook(() => useChainedMutations(config));
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Slot ids "0" are reserved'),
+      );
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should warn when using array method name as slot id', () => {
+      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+      const mutation = createMockMutation();
+
+      const config: ChainedMutationsConfig = {
+        slots: [
+          { id: 'length', label: 'Length', mutation },
+          { id: 'push', label: 'Push', mutation },
+        ],
+        variables: {
+          length: () => ({}),
+          push: () => ({}),
+        },
+        autoStart: false,
+      };
+
+      renderHook(() => useChainedMutations(config));
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('"length"'),
+      );
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('"push"'),
+      );
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should not warn for valid slot ids', () => {
+      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+      const mutation = createMockMutation();
+
+      const config: ChainedMutationsConfig = {
+        slots: [
+          { id: 'account', label: 'Account', mutation },
+          { id: 'bucket-data', label: 'Bucket', mutation },
+        ],
+        variables: {
+          account: () => ({}),
+          'bucket-data': () => ({}),
+        },
+        autoStart: false,
+      };
+
+      renderHook(() => useChainedMutations(config));
+
+      expect(consoleSpy).not.toHaveBeenCalled();
+
+      consoleSpy.mockRestore();
     });
   });
 });

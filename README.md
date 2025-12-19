@@ -100,7 +100,8 @@ export default function App() {
     ],
     variables: {
       user1: () => '1',
-      user2: (prev) => prev[0].data.userId, // Use result from previous mutation
+      user2: (prev) => prev.user1.data.userId, // Access by key (recommended)
+      // Or: (prev) => prev[0].data.userId    // Access by index (still supported)
     },
     autoStart: false,
   });
@@ -154,7 +155,7 @@ return (
 | Config | Type | Description |
 |--------|------|-------------|
 | `slots` | `Slot[]` | Array with `id`, `label`, and either `mutation` (static) or `hook` (dynamic) |
-| `variables` | `Record<string, (prev: {data, id}[]) => unknown>` | Functions to compute variables. `prev[i].data` contains mutation result, `prev[i].id` is slot id |
+| `variables` | `Record<string, (prev) => unknown>` | Functions to compute variables. Access results via `prev.slotId.data` (recommended) or `prev[i].data`. **Note:** Slot ids should not be numeric strings (`"0"`, `"1"`) or array method names (`"length"`, `"push"`, `"map"`, etc.) as they conflict with array properties. |
 | `autoStart` | `boolean` | Auto-start when ready. Default: `true` |
 
 | Return | Type | Description |

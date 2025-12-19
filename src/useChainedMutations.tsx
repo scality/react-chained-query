@@ -48,10 +48,52 @@ export interface PreviousResult<T = unknown> {
   id: string;
 }
 
-export type VariablesResolver = (previousResults: PreviousResult[]) => unknown;
+/**
+ * Enhanced array that supports both index and key-based access:
+ * - prev[0].data - access by index
+ * - prev.accountId.data - access by slot id
+ *
+ * **Note:** Slot ids should not be purely numeric strings (e.g., "0", "1") or
+ * array method names (e.g., "length", "push", "map") as they will conflict
+ * with array properties. A warning will be logged in development if reserved
+ * ids are detected.
+ */
+export type PreviousResults = PreviousResult[] & Record<string, PreviousResult>;
+
+export type VariablesResolver = (previousResults: PreviousResults) => unknown;
 export type VariablesResolvers = Record<string, VariablesResolver>;
 
+/**
+ * Creates an enhanced array that supports both index and key-based access.
+ * @internal
+ */
+function createPreviousResults(results: PreviousResult[]): PreviousResults {
+  const enhanced = [...results] as PreviousResults;
+  results.forEach((r) => {
+    (enhanced as Record<string, PreviousResult>)[r.id] = r;
+  });
+  return enhanced;
+}
+
 const isStaticSlot = (slot: Slot): slot is StaticSlot => 'mutation' in slot;
+
+/**
+ * Reserved slot ids that would conflict with array properties/methods.
+ * Using these as slot ids will cause issues with key-based access in PreviousResults.
+ */
+const RESERVED_SLOT_IDS = new Set([
+  'length',
+  'at', 'concat', 'copyWithin', 'entries', 'every', 'fill', 'filter',
+  'find', 'findIndex', 'findLast', 'findLastIndex', 'flat', 'flatMap',
+  'forEach', 'includes', 'indexOf', 'join', 'keys', 'lastIndexOf',
+  'map', 'pop', 'push', 'reduce', 'reduceRight', 'reverse', 'shift',
+  'slice', 'some', 'sort', 'splice', 'toLocaleString', 'toReversed',
+  'toSorted', 'toSpliced', 'toString', 'unshift', 'values', 'with',
+]);
+
+function isReservedSlotId(id: string): boolean {
+  return /^\d+$/.test(id) || RESERVED_SLOT_IDS.has(id);
+}
 
 interface HookSlotRendererProps {
   slot: DynamicSlot;
@@ -107,7 +149,10 @@ export interface ChainedMutationsResult {
  *   ],
  *   variables: {
  *     account: () => ({ name: 'myAccount' }),
- *     'bucket-data': (prev) => ({ Bucket: 'data', accountId: prev[0].data.id }),
+ *     // Access via key (recommended) - more readable, no index confusion
+ *     'bucket-data': (prev) => ({ Bucket: 'data', accountId: prev.account.data.id }),
+ *     // Or access via index - still supported for backwards compatibility
+ *     'bucket-logs': (prev) => ({ Bucket: 'logs', accountId: prev[0].data.id }),
  *   },
  * });
  *
@@ -130,7 +175,26 @@ export function useChainedMutations(
     Record<string, MutationInstance>
   >({});
 
+  const [executionErrors, setExecutionErrors] = useState<Record<string, Error>>(
+    {},
+  );
+
   const executionOrder = useMemo(() => slots.map((s) => s.id), [slots]);
+
+  // Warn about reserved slot ids in development
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'production') {
+      const reserved = slots.filter((s) => isReservedSlotId(s.id));
+      if (reserved.length > 0) {
+        console.warn(
+          `[useChainedMutations] Slot ids ${reserved.map((s) => `"${s.id}"`).join(', ')} ` +
+            'are reserved (numeric strings or array methods). ' +
+            'Key-based access (prev.slotId) may not work correctly. ' +
+            'Use index-based access (prev[0]) instead, or rename the slots.',
+        );
+      }
+    }
+  }, [slots]);
 
   const register = useCallback((id: string, mutation: MutationInstance) => {
     setDynamicMutations((prev) => {
@@ -194,6 +258,7 @@ export function useChainedMutations(
   useEffect(() => {
     retryFns.current = [];
     hasStarted.current = false;
+    setExecutionErrors({});
   }, [orderKey]);
 
   const execute = useCallback((results: PreviousResult[] = []) => {
@@ -206,17 +271,43 @@ export function useChainedMutations(
     const current = chain[index];
     if (!current?.mutation?.mutate) return;
 
-    const resolver = resolvers[current.id];
-    if (!resolver) {
-      console.error(
-        `[useChainedMutations] Missing variables resolver for: ${current.id}`,
-      );
-      return;
-    }
+    const enhancedResults = createPreviousResults(results);
 
     const runMutation = () => {
+      // Clear any previous error for this step before attempting (important for retries)
+      setExecutionErrors((prev) => {
+        if (!(current.id in prev)) return prev;
+        const { [current.id]: _, ...rest } = prev;
+        return rest;
+      });
+
+      // Check resolver inside runMutation so retry can re-evaluate
+      const resolver = resolvers[current.id];
+      if (!resolver) {
+        const error = new Error(`Missing variables resolver for: ${current.id}`);
+        console.error(`[useChainedMutations] ${error.message}`);
+        setExecutionErrors((prev) => ({ ...prev, [current.id]: error }));
+        return;
+      }
+
+      let resolvedVariables: unknown;
       try {
-        current.mutation.mutate(resolver(results), {
+        resolvedVariables = resolver(enhancedResults);
+      } catch (error) {
+        const resolverError =
+          error instanceof Error
+            ? error
+            : new Error(`Variables resolver threw for "${current.id}"`);
+        console.error(
+          `[useChainedMutations] Variables resolver threw for "${current.id}":`,
+          error,
+        );
+        setExecutionErrors((prev) => ({ ...prev, [current.id]: resolverError }));
+        return;
+      }
+
+      try {
+        current.mutation.mutate(resolvedVariables, {
           onSuccess: (data: unknown) => {
             execute([...results, { data, id: current.id }]);
           },
@@ -228,10 +319,15 @@ export function useChainedMutations(
           },
         });
       } catch (error) {
+        const mutateError =
+          error instanceof Error
+            ? error
+            : new Error(`Mutation "${current.id}" threw synchronously`);
         console.error(
-          `[useChainedMutations] Variables resolver threw for "${current.id}":`,
+          `[useChainedMutations] Mutation "${current.id}" threw synchronously:`,
           error,
         );
+        setExecutionErrors((prev) => ({ ...prev, [current.id]: mutateError }));
       }
     };
 
@@ -270,8 +366,11 @@ export function useChainedMutations(
         if (!mutation) return null;
 
         let status: StepStatus['status'] = 'idle';
-        if (hasPreviousError && mutation.status === 'idle') {
-          status = 'idle';
+        if (executionErrors[id]) {
+          status = 'error';
+          hasPreviousError = true;
+        } else if (hasPreviousError) {
+          // Keep idle for steps after an error
         } else if (
           mutation.status === 'loading' ||
           mutation.status === 'pending'
@@ -293,7 +392,7 @@ export function useChainedMutations(
         };
       })
       .filter((s): s is StepStatus => s !== null);
-  }, [executionOrder, slotMap, getMutation, getRetryFn]);
+  }, [executionOrder, slotMap, getMutation, getRetryFn, executionErrors]);
 
   const isComplete =
     steps.length > 0 && steps.every((s) => s.status === 'success');
@@ -321,6 +420,7 @@ export function useChainedMutations(
   const reset = useCallback(() => {
     retryFns.current = [];
     hasStarted.current = false;
+    setExecutionErrors({});
   }, []);
 
   const dynamicSlots = useMemo(
