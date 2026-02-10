@@ -272,12 +272,14 @@ export function useChainedMutations(
 
   const retryFns = useRef<Array<{ retry: () => void }>>([]);
   const hasStarted = useRef(false);
+  const highWaterMark = useRef<number>(-1);
 
   // Reset on configuration change
   const orderKey = executionOrder.join('|');
   useEffect(() => {
     retryFns.current = [];
     hasStarted.current = false;
+    highWaterMark.current = -1;
     setExecutionErrors({});
   }, [orderKey]);
 
@@ -293,10 +295,18 @@ export function useChainedMutations(
 
     const enhancedResults = createPreviousResults(results);
 
+    // Track the highest index we've reached
+    if (index > highWaterMark.current) {
+      highWaterMark.current = index;
+    }
+
     const runMutation = () => {
       // Get config once at the beginning for all error paths
       const config = configMapRef.current.get(current.id);
       const isOptional = config?.optional ?? false;
+
+      // Check if we're retrying a step that the chain already continued past
+      const shouldContinueChain = index >= highWaterMark.current;
 
       // Clear any previous error for this step before attempting (important for retries)
       setExecutionErrors((prev) => {
@@ -312,8 +322,8 @@ export function useChainedMutations(
         console.error(`[useChainedMutations] ${error.message}`);
         setExecutionErrors((prev) => ({ ...prev, [current.id]: error }));
 
-        // If optional, continue to next step with error
-        if (isOptional) {
+        // If optional, continue to next step with error (only if we haven't passed this point)
+        if (isOptional && shouldContinueChain) {
           execute([...results, { data: undefined, id: current.id, error }]);
         }
         return;
@@ -333,8 +343,8 @@ export function useChainedMutations(
         );
         setExecutionErrors((prev) => ({ ...prev, [current.id]: resolverError }));
 
-        // If optional, continue to next step with error
-        if (isOptional) {
+        // If optional, continue to next step with error (only if we haven't passed this point)
+        if (isOptional && shouldContinueChain) {
           execute([...results, { data: undefined, id: current.id, error: resolverError }]);
         }
         return;
@@ -343,7 +353,10 @@ export function useChainedMutations(
       try {
         current.mutation.mutate(resolvedVariables, {
           onSuccess: (data: unknown) => {
-            execute([...results, { data, id: current.id }]);
+            // Only advance chain if we haven't already passed this point
+            if (shouldContinueChain) {
+              execute([...results, { data, id: current.id }]);
+            }
           },
           onError: (error: unknown) => {
             console.error(
@@ -351,8 +364,8 @@ export function useChainedMutations(
               error,
             );
 
-            // If optional, continue to next step with error in result
-            if (isOptional) {
+            // If optional, continue to next step with error (only if we haven't passed this point)
+            if (isOptional && shouldContinueChain) {
               execute([...results, { data: undefined, id: current.id, error }]);
             }
           },
@@ -368,8 +381,8 @@ export function useChainedMutations(
         );
         setExecutionErrors((prev) => ({ ...prev, [current.id]: mutateError }));
 
-        // If optional, continue to next step with error
-        if (isOptional) {
+        // If optional, continue to next step with error (only if we haven't passed this point)
+        if (isOptional && shouldContinueChain) {
           execute([...results, { data: undefined, id: current.id, error: mutateError }]);
         }
       }
@@ -492,6 +505,7 @@ export function useChainedMutations(
   const reset = useCallback(() => {
     retryFns.current = [];
     hasStarted.current = false;
+    highWaterMark.current = -1;
     setExecutionErrors({});
   }, []);
 
