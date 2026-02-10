@@ -24,6 +24,7 @@ export interface StaticMutationConfig {
   id: string;
   label: string;
   mutation: MutationInstance;
+  optional?: boolean;
 }
 
 /** A mutation config with a hook function (will be called via internal component) */
@@ -31,6 +32,7 @@ export interface DynamicMutationConfig {
   id: string;
   label: string;
   hook: MutationHook;
+  optional?: boolean;
 }
 
 export type MutationConfig = StaticMutationConfig | DynamicMutationConfig;
@@ -41,11 +43,13 @@ export interface StepStatus {
   step: number;
   status: 'idle' | 'pending' | 'success' | 'error';
   retry: () => void;
+  optional?: boolean;
 }
 
 export interface PreviousResult<T = unknown> {
-  data: T;
+  data: T | undefined;
   id: string;
+  error?: unknown;
 }
 
 /**
@@ -130,6 +134,9 @@ export interface ChainedMutationsResult {
   getResult: <T = unknown>(id: string) => T | undefined;
   start: () => void;
   reset: () => void;
+  allRequiredStepsComplete: boolean;
+  hasOptionalFailures: boolean;
+  optionalFailures: Array<{ id: string; label: string; error: unknown }>;
 }
 
 /**
@@ -260,6 +267,9 @@ export function useChainedMutations(
   const variablesRef = useRef(variables);
   variablesRef.current = variables;
 
+  const configMapRef = useRef(mutationConfigMap);
+  configMapRef.current = mutationConfigMap;
+
   const retryFns = useRef<Array<{ retry: () => void }>>([]);
   const hasStarted = useRef(false);
 
@@ -317,6 +327,9 @@ export function useChainedMutations(
       }
 
       try {
+        const config = configMapRef.current.get(current.id);
+        const isOptional = config?.optional ?? false;
+
         current.mutation.mutate(resolvedVariables, {
           onSuccess: (data: unknown) => {
             execute([...results, { data, id: current.id }]);
@@ -326,6 +339,11 @@ export function useChainedMutations(
               `[useChainedMutations] Mutation "${current.id}" failed:`,
               error,
             );
+
+            // If optional, continue to next step with error in result
+            if (isOptional) {
+              execute([...results, { data: undefined, id: current.id, error }]);
+            }
           },
         });
       } catch (error) {
@@ -366,7 +384,7 @@ export function useChainedMutations(
   );
 
   const steps: StepStatus[] = useMemo(() => {
-    let hasPreviousError = false;
+    let hasPreviousRequiredError = false;
     return executionOrder
       .map((id, index) => {
         const config = mutationConfigMap.get(id);
@@ -375,12 +393,16 @@ export function useChainedMutations(
         const mutation = getMutation(id);
         if (!mutation) return null;
 
+        const isOptional = config.optional ?? false;
+
         let status: StepStatus['status'] = 'idle';
         if (executionErrors[id]) {
           status = 'error';
-          hasPreviousError = true;
-        } else if (hasPreviousError) {
-          // Keep idle for steps after an error
+          if (!isOptional) {
+            hasPreviousRequiredError = true;
+          }
+        } else if (hasPreviousRequiredError) {
+          // Keep idle for steps after a required error
         } else if (
           mutation.status === 'loading' ||
           mutation.status === 'pending'
@@ -388,7 +410,9 @@ export function useChainedMutations(
           status = 'pending';
         } else if (mutation.status === 'error') {
           status = 'error';
-          hasPreviousError = true;
+          if (!isOptional) {
+            hasPreviousRequiredError = true;
+          }
         } else if (mutation.status === 'success') {
           status = 'success';
         }
@@ -399,6 +423,7 @@ export function useChainedMutations(
           step: index + 1,
           status,
           retry: getRetryFn(index),
+          ...(isOptional && { optional: true }),
         };
       })
       .filter((s): s is StepStatus => s !== null);
@@ -407,6 +432,27 @@ export function useChainedMutations(
   const isComplete =
     steps.length > 0 && steps.every((s) => s.status === 'success');
   const hasError = steps.some((s) => s.status === 'error');
+
+  const allRequiredStepsComplete =
+    steps.length > 0 &&
+    steps
+      .filter((s) => !s.optional)
+      .every((s) => s.status === 'success');
+
+  const optionalFailures = useMemo(() => {
+    return steps
+      .filter((s) => s.optional && s.status === 'error')
+      .map((s) => {
+        const mutation = getMutation(s.id);
+        return {
+          id: s.id,
+          label: s.label,
+          error: mutation?.error || executionErrors[s.id] || new Error('Unknown error'),
+        };
+      });
+  }, [steps, getMutation, executionErrors]);
+
+  const hasOptionalFailures = optionalFailures.length > 0;
 
   const getResult = useCallback(
     <T = unknown>(id: string): T | undefined => getMutation(id)?.data,
@@ -465,5 +511,8 @@ export function useChainedMutations(
     getResult,
     start,
     reset,
+    allRequiredStepsComplete,
+    hasOptionalFailures,
+    optionalFailures,
   };
 }
