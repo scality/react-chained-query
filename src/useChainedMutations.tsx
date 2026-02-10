@@ -469,18 +469,16 @@ export function useChainedMutations(
       ? requiredSteps.every((s) => s.status === 'success')
       : steps.some((s) => s.status === 'success')); // If all optional, at least one must succeed
 
-  const optionalFailures = useMemo(() => {
-    return steps
-      .filter((s) => s.optional && s.status === 'error')
-      .map((s) => {
-        const mutation = getMutation(s.id);
-        return {
-          id: s.id,
-          label: s.label,
-          error: mutation?.error || executionErrors[s.id] || new Error('Unknown error'),
-        };
-      });
-  }, [steps, getMutation, executionErrors]);
+  const optionalFailures = steps
+    .filter((s) => s.optional && s.status === 'error')
+    .map((s) => {
+      const mutation = getMutation(s.id);
+      return {
+        id: s.id,
+        label: s.label,
+        error: mutation?.error || executionErrors[s.id] || new Error('Unknown error'),
+      };
+    });
 
   const hasOptionalFailures = optionalFailures.length > 0;
 
