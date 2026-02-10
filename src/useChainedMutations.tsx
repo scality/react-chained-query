@@ -294,6 +294,10 @@ export function useChainedMutations(
     const enhancedResults = createPreviousResults(results);
 
     const runMutation = () => {
+      // Get config once at the beginning for all error paths
+      const config = configMapRef.current.get(current.id);
+      const isOptional = config?.optional ?? false;
+
       // Clear any previous error for this step before attempting (important for retries)
       setExecutionErrors((prev) => {
         if (!(current.id in prev)) return prev;
@@ -307,6 +311,11 @@ export function useChainedMutations(
         const error = new Error(`Missing variables resolver for: ${current.id}`);
         console.error(`[useChainedMutations] ${error.message}`);
         setExecutionErrors((prev) => ({ ...prev, [current.id]: error }));
+
+        // If optional, continue to next step with error
+        if (isOptional) {
+          execute([...results, { data: undefined, id: current.id, error }]);
+        }
         return;
       }
 
@@ -323,13 +332,15 @@ export function useChainedMutations(
           error,
         );
         setExecutionErrors((prev) => ({ ...prev, [current.id]: resolverError }));
+
+        // If optional, continue to next step with error
+        if (isOptional) {
+          execute([...results, { data: undefined, id: current.id, error: resolverError }]);
+        }
         return;
       }
 
       try {
-        const config = configMapRef.current.get(current.id);
-        const isOptional = config?.optional ?? false;
-
         current.mutation.mutate(resolvedVariables, {
           onSuccess: (data: unknown) => {
             execute([...results, { data, id: current.id }]);
@@ -356,6 +367,11 @@ export function useChainedMutations(
           error,
         );
         setExecutionErrors((prev) => ({ ...prev, [current.id]: mutateError }));
+
+        // If optional, continue to next step with error
+        if (isOptional) {
+          execute([...results, { data: undefined, id: current.id, error: mutateError }]);
+        }
       }
     };
 
