@@ -462,11 +462,12 @@ export function useChainedMutations(
     steps.length > 0 && steps.every((s) => s.status === 'success');
   const hasError = steps.some((s) => s.status === 'error');
 
+  const requiredSteps = steps.filter((s) => !s.optional);
   const allRequiredStepsComplete =
     steps.length > 0 &&
-    steps
-      .filter((s) => !s.optional)
-      .every((s) => s.status === 'success');
+    (requiredSteps.length > 0
+      ? requiredSteps.every((s) => s.status === 'success')
+      : steps.some((s) => s.status === 'success')); // If all optional, at least one must succeed
 
   const optionalFailures = useMemo(() => {
     return steps
